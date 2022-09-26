@@ -1,0 +1,185 @@
+<?xml version="1.0"?>
+<project name="web3" basedir="." default="build">
+
+    <property file="build.properties"/>
+
+    <taskdef resource="net/sf/antcontrib/antlib.xml">
+        <classpath>
+            <pathelement location="lib/ant-contrib-1.0b3.jar"/>
+        </classpath>
+    </taskdef>
+
+    <taskdef name="scp" classname="org.apache.tools.ant.taskdefs.optional.ssh.Scp">
+        <classpath>
+            <pathelement location="lib/jsch-0.1.55.jar"/>
+        </classpath>
+    </taskdef>
+
+    <taskdef name="junit" classname="org.apache.tools.ant.taskdefs.optional.junit.JUnitTask">
+        <classpath>
+            <pathelement location="lib/junit-4.13.2.jar"/>
+        </classpath>
+    </taskdef>
+
+
+    <tstamp>
+        <format property="TODAY" pattern="d-MMMM-yyyy" locale="en,GB"/>
+    </tstamp>
+
+
+    <path id="libs">
+        <fileset dir="./lib">
+            <include name="*.jar"/>
+        </fileset>
+    </path>
+
+
+
+    <!--    TARGETS  -->
+
+
+    <target name="compile">
+        <mkdir dir="${dest.classes}"/>
+        <javac srcdir="${classes.dir}" destdir="${dest.classes}" encoding="utf-8">
+            <classpath>
+                <path refid="libs"/>
+            </classpath>
+        </javac>
+
+        <mkdir dir="${dest.tests}"/>
+        <javac srcdir="${tests.dir}" destdir="${dest.tests}">
+            <classpath>
+                <pathelement location="${dest.classes}"/>
+                <path refid="libs"/>
+            </classpath>
+        </javac>
+
+        <copy todir="${dest.classes}">
+            <fileset dir="${resource.dir}"/>
+        </copy>
+    </target>
+
+    <target name="build" depends="compile">
+        <delete file="${dest.jar}"/>
+        <manifestclasspath property="jar.classpath" jarfile="${dest.jar}">
+            <classpath refid="libs"/>
+        </manifestclasspath>
+        <jar destfile="${dest.jar}" basedir="${dest.classes}">
+            <manifest>
+                <attribute name="Built-By" value="${username}"/>
+                <attribute name="Main-Class" value="${main-class}"/>
+                <attribute name="Implementation-Version" value="${app.version} ${TODAY}"/>
+                <attribute name="Class-Path" value="${jar.classpath}"/>
+            </manifest>
+            <zipfileset dir="lib" prefix="lib/"/>
+        </jar>
+
+    </target>
+
+    <target name="clean">
+        <delete dir="${dest.dir}"/>
+    </target>
+
+    <target name="test" depends="build">
+        <junit fork="true" printsummary="on">
+            <formatter type="plain"/>
+            <classpath>
+                <path refid="libs"/>
+                <pathelement location="${dest.classes}"/>
+                <pathelement location="${dest.tests}"/>
+            </classpath>
+            <test name="ShotTest"/>
+
+        </junit>
+        <echo message="--- TEST DONE ---"/>
+    </target>
+
+    <target name="scp" depends="build">
+        <scp file="${dest.jar}"
+             todir="${remote.username}@se.ifmo.ru:/home/studs/s313306/"
+             password="${remote.password}"
+             port="2222"
+             trust="true"/>
+    </target>
+
+    <target name="history">
+        <var name="history.compiled" value="false"/>
+        <var name="keepgoing" value="true"/>
+
+        <!--        svn log -q | grep 'r*' | head -n -1     -->
+
+        <exec executable="svn" output="temp">
+            <arg value="log"/>
+            <arg value="-q"/>
+        </exec>
+
+        <exec executable="grep" input="temp" output="temp">
+            <arg value="'r*'"/>
+        </exec>
+
+        <exec executable="head" input="temp" outputproperty="history.commits.grep">
+            <arg value="-n"/>
+            <arg value="-2"/>
+        </exec>
+
+        <!--        go to previous working version-->
+
+        <exec executable="svn">
+            <arg value="update"/>
+            <arg value="-r"/>
+            <arg value="PREV"/>
+        </exec>
+
+        <for list="${history.commits.grep}" delimiter="&#10;" param="p" keepgoing="${keepgoing}">
+
+            <sequential>
+                <if>
+                    <istrue value="${keepgoing}"/>
+                    <then>
+                        <echo message="ddddddd"/>
+                        <trycatch>
+                            <try>
+                                <echo message="-------------------"/>
+                                <echo message="--- TRY COMPILE ---"/>
+                                <echo message="-------------------"/>
+
+                                <antcall target="compile"/>
+                                <var name="keepgoing" value="false"/>
+
+                                <echo message="----------------"/>
+                                <echo message="--- COMPILED ---"/>
+                                <echo message="-----------------"/>
+                            </try>
+                            <catch>
+                                <echo message="----------------------------"/>
+                                <echo message="--- SETTING PREV VERSION ---"/>
+                                <echo message="----------------------------"/>
+
+                                <echo message="bim bom"/>
+                                <exec executable="svn">
+                                    <arg value="update"/>
+                                    <arg value="-r"/>
+                                    <arg value="PREV"/>
+                                </exec>
+
+                                <echo message="---------------------------"/>
+                                <echo message="--- PREV VERSION IS SET ---"/>
+                                <echo message="---------------------------"/>
+                            </catch>
+                        </trycatch>
+
+                    </then>
+                </if>
+
+            </sequential>
+        </for>
+
+        <exec executable="svn" output="diff.txt">
+            <arg value="diff"/>
+            <arg value="-r"/>
+            <arg value="PREV"/>
+        </exec>
+
+    </target>
+
+</project>

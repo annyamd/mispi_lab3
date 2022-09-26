@@ -1,0 +1,18 @@
+Index: src/main/java/com/example/web3/Main.java
+===================================================================
+--- src/main/java/com/example/web3/Main.java	(revision 28)
++++ src/main/java/com/example/web3/Main.java	(working copy)
+@@ -12,8 +12,6 @@
+         areaShotsList.setR(1);
+         areaShotsList.addShot();
+ 
+-        System.out.pr
+-                
+-    intln(">>Main done.");
++        System.out.println(">>Main done.");
+     }
+ }
+Index: target/webapp.jar
+===================================================================
+Cannot display: file marked as a binary type.
+svn:mime-type = application/octet-stream
